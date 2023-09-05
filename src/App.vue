@@ -1,15 +1,14 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Welcome to Your Vue.js App"/>
+  <CarotaFormDesigner></CarotaFormDesigner>
 </template>
 
-<script>
-import HelloWorld from './components/HelloWorld.vue'
+<script lang="ts">
 
+import CarotaFormDesigner from "@/components/carota-form/carota-form-designer/carota-form-designer.vue";
 export default {
   name: 'App',
   components: {
-    HelloWorld
+    CarotaFormDesigner
   }
 }
 </script>
