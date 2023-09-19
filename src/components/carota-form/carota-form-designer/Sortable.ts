@@ -4,9 +4,6 @@ import {
     FormDesignCol,
     FormDesignRow
 } from "@/components/carota-form/carota-form-designer/FormDesign";
-import {FormCategory, InputCategory} from "@/components/carota-form/carota-form-designer/Category";
-import carotaFormDesigner from "@/components/carota-form/carota-form-designer/carota-form-designer.vue";
-import {throwError} from "element-plus/es/utils";
 
 
 /**
@@ -29,20 +26,24 @@ export class SortableClass {
         SORTABLE3: SortableClass.build('sortable-container-3', '设计栏,布局栏:可拖拽,可放入,移动'),
         CANT_SORTABLE: SortableClass.build('cant-sortable', '不能拖拽的组件'),
     }
-
-
 }
 
 export class SortableJS {
 
-    static beforeRowId : string = '';
+    static beforeRowId: string = ''
+    categoryDesign: FormDesign
+
+    constructor(categoryDesign: FormDesign) {
+        this.categoryDesign = categoryDesign
+    }
 
     /**
      * 组件栏
      * @param ele
      * @param categoryDesign
      */
-    public static createContainer1(ele: HTMLElement, categoryDesign: FormDesign) {
+    public createContainer1(ele: HTMLElement) {
+        const that = this
         new Sortable(ele, {
             group: {
                 name: 'drag-form',
@@ -52,37 +53,37 @@ export class SortableJS {
             animation: 150,
             emptyInsertThreshold: 0,
             fallbackOnBody: true,
-            swapThreshold: 0.65,
+            swapThreshold: 1,
             filter: '.' + SortableClass.ENUM.CANT_SORTABLE.clazz,
             sort: false, // To disable sorting: set sort to false,
             onEnd: function (event: Sortable.SortableEvent) {
-
                 const toHtml = event.to
                 const itemHtml = event.item
 
-                const isToRow = SortableJS.isSortable2(toHtml)
-                const isToDesigner = SortableJS.isSortable3(toHtml)
+                const isToRow = that.isSortable2(toHtml)
+                const isToDesigner = that.isSortable3(toHtml)
 
-                SortableJS.replaceBeforeColWidth(toHtml.id)
+                that.replaceBeforeColWidth(toHtml.id)
 
-                if (!isToRow && !isToDesigner){ // 如果按钮被拖回到原来的位置(撤销拖拽),则不作任何操作
+                if (!isToRow && !isToDesigner) { // 如果按钮被拖回到原来的位置(撤销拖拽),则不作任何操作
                     return
                 }
                 const toColIndex = event.newIndex as number
                 const toId = toHtml.id
+                const formDesignCol = FormDesignCol.build(itemHtml.getAttribute('category'))
                 if (isToRow) { // 如果放在了row里,则对row内元素进行排序
-                    for (let i = 0; i < categoryDesign.rowArr.length; i++) {
-                        const row = categoryDesign.rowArr[i]
+                    for (let i = 0; i < that.categoryDesign.rowArr.length; i++) {
+                        const row = that.categoryDesign.rowArr[i]
                         if (toId === row.id) {    // 如果设计栏-行的id和当前to.id相等,说明是同一个元素
-                            row.colArr.splice(toColIndex, 0, new FormDesignCol(new InputCategory()))  // 在指定位置插入当前组件
-                            SortableJS.resetFormDesignCol(row.colArr)
+
+                            row.colArr.splice(toColIndex, 0, formDesignCol)  // 在指定位置插入当前组件
+                            that.resetFormDesignCol(row.colArr)
                         }
                     }
                 } else {
                     // 如果外层不在row内,包一层row
-                    const toRowVO = SortableJS.createRowAndSortable(toHtml, toColIndex, categoryDesign)
-                    toRowVO.colArr.push(new FormDesignCol(new InputCategory()))
-
+                    const toRowVO = that.createRowAndSortable(toHtml, toColIndex)
+                    toRowVO.colArr.push(formDesignCol)
                 }
                 toHtml.removeChild(itemHtml)    //移除sortable创建的组件按钮
             },
@@ -94,7 +95,8 @@ export class SortableJS {
      * @param ele
      * @param categoryDesign
      */
-    public static createContainer2(ele: HTMLElement, categoryDesign: FormDesign) {
+    public createContainer2(ele: HTMLElement) {
+        const that = this
         new Sortable(ele, {
             group: {
                 name: 'drag-form',
@@ -102,8 +104,9 @@ export class SortableJS {
             },
             animation: 150,
             emptyInsertThreshold: 0,
+            dragoverBubble: true,
             fallbackOnBody: true,
-            swapThreshold: 0.65,
+            swapThreshold: 1,
             filter: '.' + SortableClass.ENUM.CANT_SORTABLE.clazz,
             /**
              * @param event
@@ -113,12 +116,21 @@ export class SortableJS {
                 const toHtml = event.to
                 const itemHtml = event.item
                 const fromHtml = event.from
+                const fromColVOInx = event.oldIndex as number   // 原始容器排序
+                let toColVOInx = event.newIndex as number     // 新容器排序
+                const onContent = toHtml.id === fromHtml.id
+                // ++++++++++++++++++++++++++++++++++++特殊情况判断开始++++++++++++++++++++++++++++++++++++
+                if (onContent && toHtml.children.length == 1) {  // 拖拽前后是同容器,并且容器中只有一个子节点,则不操作
+                    return;
+                }
+                // ++++++++++++++++++++++++++++++++++++特殊情况判断结束++++++++++++++++++++++++++++++++++++
+
                 let fromRowVO
                 let toRowVO
-                const toIsRow = SortableJS.isSortable2(toHtml)
+                const toIsRow = that.isSortable2(toHtml)
                 // 对from中的col进行操作
-                for (let k = categoryDesign.rowArr.length - 1; k >= 0; k--) {
-                    const rowVO = categoryDesign.rowArr[k]
+                for (let k = that.categoryDesign.rowArr.length - 1; k >= 0; k--) {
+                    const rowVO = that.categoryDesign.rowArr[k]
                     if (rowVO.id == fromHtml.id) {   // 获取源row
                         fromRowVO = rowVO
                         if (!toIsRow) {
@@ -135,28 +147,26 @@ export class SortableJS {
                         }
                     }
                 }
-                console.log(fromRowVO)
                 if (!fromRowVO) {
                     return
                 }
 
-                const fromColVOInx = event.oldIndex as number   // 原始容器排序
-                let toColVOInx = event.newIndex as number     // 新容器排序
                 const fromColVO = fromRowVO.colArr[fromColVOInx]
-                SortableJS.removeColFromRow(fromRowVO,fromColVOInx, categoryDesign) // 在from中移除当前col
+                that.removeColFromRow(fromRowVO, fromColVOInx) // 在from中移除当前col
 
-                SortableJS.resetFormDesignCol(fromRowVO.colArr)
+                if (!onContent) { // 如果拖拽前后不是同一个容器内
+                    toHtml.removeChild(itemHtml)    // from移除item
+                }
+
                 if (!toRowVO) {
-                    console.log('创建row')
                     // 新建row
-                    toRowVO = SortableJS.createRowAndSortable(toHtml,toColVOInx, categoryDesign)
+                    toRowVO = that.createRowAndSortable(toHtml, toColVOInx)
                     toColVOInx = 0
                 }
 
-                toHtml.removeChild(itemHtml)    // 移出sortablejs添加的元素
                 toRowVO.colArr.splice(toColVOInx, 0, fromColVO)  // 在toTow中添加当前col
-                SortableJS.resetFormDesignCol(toRowVO.colArr)   // 重新排序
-                console.log('结束')
+
+                that.resetFormDesignCol(toRowVO.colArr)   // 重新排序
             },
 
             onChange: function (event) {
@@ -165,13 +175,13 @@ export class SortableJS {
                 const fromHtml = event.from
                 const toHtml = event.to
 
-                SortableJS.replaceBeforeColWidth(toHtml.id)
+                that.replaceBeforeColWidth(toHtml.id)
 
-                if (SortableJS.isSortable2(toHtml)) {
-                    SortableJS.replaceColWidth(toHtml.children)    // 替换目标row中col宽度
+                if (that.isSortable2(toHtml)) {
+                    that.replaceColWidth(toHtml.children)    // 替换目标row中col宽度
                 }
-                if (!SortableJS.isSortable1(fromHtml)) {
-                    SortableJS.replaceColWidth(fromHtml.children)  // 替换源row中col宽度
+                if (!that.isSortable1(fromHtml)) {
+                    that.replaceColWidth(fromHtml.children)  // 替换源row中col宽度
                 }
             },
 
@@ -182,7 +192,8 @@ export class SortableJS {
      * 设计栏,布局栏
      * @param ele
      */
-    public static createContainer3(ele: HTMLElement, categoryDesign: FormDesign) {
+    public createContainer3(ele: HTMLElement) {
+        const that = this
         new Sortable(ele, {
             group: {
                 name: 'drag-form',
@@ -191,7 +202,6 @@ export class SortableJS {
             fallbackOnBody: true,
             swapThreshold: 0.65,
             filter: '.' + SortableClass.ENUM.CANT_SORTABLE.clazz,
-            invertSwap: true,
             animation: 150,
             emptyInsertThreshold: 0,
             onChoose: function (event) {
@@ -203,9 +213,7 @@ export class SortableJS {
             },
             onChange: function (event) {
                 const toHtml = event.to
-
-                SortableJS.replaceBeforeColWidth(toHtml.id)
-
+                that.replaceBeforeColWidth(toHtml.id)
             },
 
 
@@ -219,7 +227,7 @@ export class SortableJS {
      * @param startWith
      * @private
      */
-    private static removeStartWithClass(classList: DOMTokenList, classStart: string) {
+    private removeStartWithClass(classList: DOMTokenList, classStart: string) {
         for (let i = classList.length - 1; i >= 0; i--) {
             if (classList[i].startsWith(classStart)) {
                 classList.remove(classList[i])
@@ -233,11 +241,11 @@ export class SortableJS {
      * @param rowId 当前row id
      * @private
      */
-    private static replaceBeforeColWidth(rowId:string){
-        if (SortableJS.beforeRowId){
+    private replaceBeforeColWidth(rowId: string) {
+        if (SortableJS.beforeRowId) {
             const beforeRowElement = document.getElementById(SortableJS.beforeRowId)
-            if (beforeRowElement){
-                SortableJS.replaceColWidth(beforeRowElement.children)  // 替换源row中col宽度
+            if (beforeRowElement) {
+                this.replaceColWidth(beforeRowElement.children)  // 替换源row中col宽度
             }
         }
         SortableJS.beforeRowId = rowId
@@ -247,7 +255,7 @@ export class SortableJS {
      * 替换col的宽度
      * @param childrens 子节点
      */
-    private static replaceColWidth(childrens: HTMLCollection) {
+    private replaceColWidth(childrens: HTMLCollection) {
         if (!childrens) {
             return
         }
@@ -258,7 +266,7 @@ export class SortableJS {
         for (let i = 0; i < length; i++) {
             const colHtml = childrens[i]
             // 移除其他span宽度
-            SortableJS.removeStartWithClass(colHtml.classList, classStart)
+            this.removeStartWithClass(colHtml.classList, classStart)
             colHtml.classList.add(classStart + colWidth.getWidth(i))// 添加指定宽度
         }
     }
@@ -267,7 +275,7 @@ export class SortableJS {
      * 重置designCol部分数据
      * @param columns {@link FormDesignColumn}数组
      */
-    private static resetFormDesignCol(columns: FormDesignCol[]) {
+    private resetFormDesignCol(columns: FormDesignCol[]) {
         const length = columns.length
 
         const toColWidth = ColWidth.calculate(length)
@@ -283,48 +291,64 @@ export class SortableJS {
      * 重置designRow部分数据
      * @param columns {@link FormDesignColumn}数组
      */
-    private static resetFormDesignRow(columns: FormDesignRow[]) {
+    private resetFormDesignRow(columns: FormDesignRow[]) {
         for (let i = 0; i < columns.length; i++) {
             columns[i].sort = i  // 重新排序
         }
     }
 
-    private static isSortable3(ele: HTMLElement): boolean {
+    private isSortable3(ele: HTMLElement): boolean {
         return ele.classList.contains(SortableClass.ENUM.SORTABLE3.clazz)
     }
-    private static isSortable2(ele: HTMLElement): boolean {
+
+    private isSortable2(ele: HTMLElement): boolean {
         return ele.classList.contains(SortableClass.ENUM.SORTABLE2.clazz)
     }
 
-    private static isSortable1(ele: HTMLElement): boolean {
+    private isSortable1(ele: HTMLElement): boolean {
         return ele.classList.contains(SortableClass.ENUM.SORTABLE1.clazz)
     }
 
-    private static createRowAndSortable(toHtml: HTMLElement, toIndex: number, categoryDesign: FormDesign): FormDesignRow {
+    private createRowAndSortable(toHtml: HTMLElement, toIndex: number): FormDesignRow {
         const toRowVO = new FormDesignRow()
         // 对row排序
         // toHtml.removeChild(toHtml.children[toIndex])
-        categoryDesign.rowArr.splice(toIndex, 0, toRowVO)
-        SortableJS.resetFormDesignRow(categoryDesign.rowArr)
+        this.categoryDesign.rowArr.splice(toIndex, 0, toRowVO)
+        this.resetFormDesignRow(this.categoryDesign.rowArr)
         setTimeout(() => {  // 创建拖拽容器
-            SortableJS.createContainer2(document.getElementById(toRowVO.id) as HTMLElement, categoryDesign)
-        }, 1000);
+            this.createContainer2(document.getElementById(toRowVO.id) as HTMLElement)
+        }, 500);
         return toRowVO;
     }
 
     /**
      * 在row中移出col,如果col移除后row变空,则把row移出
      * @param fromRowVO {@link FormDesignRow}
-     * @param fromIndex 需要移出的cow索引
-     * @param categoryDesign {@link FormDesign}
+     * @param colInx 需要移出的cow索引
      * @private
      */
-    private static removeColFromRow(fromRowVO: FormDesignRow, fromIndex:number, categoryDesign:FormDesign){
-        fromRowVO.colArr.splice(fromIndex, 1) // 在from中移除当前col
-        if (fromRowVO.colArr.length == 0){
-            categoryDesign.rowArr.splice(categoryDesign.rowArr.lastIndexOf(fromRowVO),1)
+    private removeColFromRow(fromRowVO: FormDesignRow, colInx: number) {
+        fromRowVO.colArr.splice(colInx, 1) // 在from中移除当前col
+
+        if (fromRowVO.colArr.length == 0) {
+            this.categoryDesign.rowArr.splice(this.categoryDesign.rowArr.lastIndexOf(fromRowVO), 1)
+        }else {
+            this.resetFormDesignCol(fromRowVO.colArr)
         }
 
+    }
+
+    /**
+     * 在row中移出col,如果col移除后row变空,则把row移出,如果row不为空,则对row排序
+     * @param fromRowVO {@link FormDesignRow}
+     * @param colInx 需要移出的cow索引
+     * @private
+     */
+    public removeColFromRowAndSort(fromRowVO: FormDesignRow, colInx: number) {
+        this.removeColFromRow(fromRowVO,colInx)
+        if (fromRowVO.colArr.length != 0) {
+            this.resetFormDesignCol(fromRowVO.colArr)
+        }
     }
 }
 

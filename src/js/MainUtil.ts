@@ -7,12 +7,12 @@ export class MainUtil {
      *
      * @param length 指定长度,默认值8
      */
-    public static randomId(length: number|null): string {
+    public static randomId(length: number | null): string {
         const characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
         const firstCharacter = 'abcdefghijklmnopqrstuvwxyz';
 
         let id = firstCharacter[Math.floor(Math.random() * firstCharacter.length)];
-        if (!length){
+        if (!length) {
             length = 8
         }
         for (let i = 1; i < length; i++) {
@@ -21,17 +21,28 @@ export class MainUtil {
         return id;
     }
 
-    /**
+   /**
      * 获取html元素
      * @param name 元素名
      * @param clazz 元素包含的类
      */
     public static getElement(name: string, ...clazz: string[]): HTMLElement {
         const ele = document.createElement(name)
-        if (clazz){
+        if (clazz) {
             ele.classList.add(...clazz)
         }
         return ele;
     }
 }
 
+export class StrUtil {
+    /**
+     * 将字符串的首字母大写,其余字母小写
+     * @param str
+     */
+    public static capitalizeFirst(str: string|null) {
+        if (str){
+            return str.charAt(0).toUpperCase() + str.toLowerCase().slice(1);
+        }
+    }
+}
